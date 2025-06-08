@@ -17,11 +17,16 @@ app.use(bodyParser.json());
 // POST: Receive and translate email
 app.post('/inbound-email', async (req, res) => {
   const emailData = req.body;
-  const originalText = emailData.TextBody;
-  const sender = emailData.From;
+  console.log('📨 Webhook triggered');
+  console.log('🔍 Raw payload:', JSON.stringify(emailData, null, 2));
 
-  console.log('📬 Email Received from:', sender);
-  console.log('📝 Original Message:', originalText);
+  const originalText = emailData.TextBody || '';
+  const sender = emailData.From || 'unknown@example.com';
+
+  if (!originalText) {
+    console.warn('⚠️ No TextBody found in incoming email.');
+    return res.status(400).send('No content to translate');
+  }
 
   try {
     // Step 1: Detect Language
@@ -33,6 +38,7 @@ app.post('/inbound-email', async (req, res) => {
 
     const detection = await detectRes.json();
     const language = detection?.[0]?.language || 'unknown';
+    console.log('🌍 Detected language:', language);
 
     let translatedText = originalText;
 
@@ -43,7 +49,7 @@ app.post('/inbound-email', async (req, res) => {
         headers: {
           "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:3000",
+          "HTTP-Referer": "https://indox-translator.onrender.com",
           "X-Title": "inbox-translator-app"
         },
         body: JSON.stringify({
@@ -63,6 +69,9 @@ app.post('/inbound-email', async (req, res) => {
 
       const result = await translationRes.json();
       translatedText = result.choices?.[0]?.message?.content || "Translation failed.";
+      console.log('✅ Translated message:', translatedText);
+    } else {
+      console.log('⚡ Message already in English. Skipping translation.');
     }
 
     // Save to in-memory history
@@ -81,11 +90,11 @@ app.post('/inbound-email', async (req, res) => {
       TextBody: `Here is your translated message:\n\n${translatedText}`
     });
 
-    console.log('✅ Email translated & sent back!');
+    console.log('📤 Email sent back to:', sender);
 
     res.status(200).send('Translation and email sent!');
   } catch (error) {
-    console.error('❌ Failed:', error);
+    console.error('❌ Failed to process email:', error);
     res.status(500).send('Translation or email send error');
   }
 });
