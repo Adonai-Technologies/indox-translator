@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inbox Translator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+
+/* Font & base styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* Light mode override */
+body.light-mode {
+  background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+  color: #222;
+}
+
+/* Header */
+h1 {
+  font-weight: 600;
+  font-size: 2.8rem;
+  margin-bottom: 30px;
+  color: #61dafb;
+  text-align: center;
+  transition: color 0.5s ease;
+}
+
+/* Light mode header color */
+body.light-mode h1 {
+  color: #007acc;
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* Email Card */
+.email-card {
+  background-color: #222;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 0.5);
+  transition: background-color 0.3s ease;
+  opacity: 0;
+  animation: fadeIn 0.8s forwards;
+}
+
+/* Light mode card */
+body.light-mode .email-card {
+  background-color: #fff;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.1);
+  color: #222;
+}
+
+/* Hover */
+.email-card:hover {
+  background-color: #333;
+}
+
+body.light-mode .email-card:hover {
+  background-color: #e2e2e2;
+}
+
+/* Email Header */
+.email-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.email-from {
+  font-weight: 600;
+  color: #61dafb;
+  transition: color 0.5s ease;
+}
+
+body.light-mode .email-from {
+  color: #007acc;
+}
+
+.email-time {
+  font-size: 0.85rem;
+  color: #aaa;
+  font-style: italic;
+  transition: color 0.5s ease;
+}
+
+body.light-mode .email-time {
+  color: #666;
+}
+
+/* Sections */
+.email-section {
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* Labels */
+.label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #90caf9;
+  transition: color 0.5s ease;
+}
+
+body.light-mode .label {
+  color: #005f9e;
+}
+
+/* No emails message */
+.no-emails {
+  text-align: center;
+  color: #777;
+  font-size: 1.2rem;
+  margin-top: 60px;
+  transition: color 0.5s ease;
+}
+
+body.light-mode .no-emails {
+  color: #999;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  .email-card {
+    padding: 16px;
+  }
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Toggle button styles */
+#mode-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #61dafb;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #121212;
+  box-shadow: 0 4px 10px rgb(97 218 251 / 0.6);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  z-index: 1000;
+}
+
+body.light-mode #mode-toggle {
+  background: #007acc;
+  color: #f0f0f0;
+}
+
+#mode-toggle:hover {
+  background-color: #52b0e7;
+}
+
+body.light-mode #mode-toggle:hover {
+  background-color: #005a9e;
+}
+
+  </style>
+</head>
+<body>
+  <button id="mode-toggle" aria-label="Toggle Dark/Light Mode">Light Mode</button>
+
+  <div class="container">
+    <h1>📨 Inbox Translator</h1>
+
+    <% if (emails.length === 0) { %>
+      <p class="no-emails">No emails received yet.</p>
+    <% } else { %>
+      <% emails.slice().reverse().forEach(email => { %>
+        <div class="email-card">
+          <div class="email-header">
+            <div class="email-from">From: <%= email.from %></div>
+            <div class="email-time"><%= email.time %></div>
+          </div>
+          <div class="email-section">
+            <div class="label">Original Message:</div>
+            <div><%= email.original %></div>
+          </div>
+          <div class="email-section">
+            <div class="label">Translated Message:</div>
+            <div><%= email.translated %></div>
+          </div>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+
+  <script>
+    const toggleBtn = document.getElementById('mode-toggle');
+    const body = document.body;
+
+    // Load saved mode from localStorage
+    if(localStorage.getItem('mode') === 'light') {
+      body.classList.add('light-mode');
+      toggleBtn.textContent = 'Dark Mode';
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      body.classList.toggle('light-mode');
+      const isLight = body.classList.contains('light-mode');
+      toggleBtn.textContent = isLight ? 'Dark Mode' : 'Light Mode';
+      localStorage.setItem('mode', isLight ? 'light' : 'dark');
+    });
+  </script>
+</body>
+</html>
