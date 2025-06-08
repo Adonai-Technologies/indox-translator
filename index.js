@@ -17,64 +17,41 @@ app.use(bodyParser.json());
 // POST: Receive and translate email
 app.post('/inbound-email', async (req, res) => {
   const emailData = req.body;
-  console.log('📨 Webhook triggered');
-  console.log('🔍 Raw payload:', JSON.stringify(emailData, null, 2));
+  const originalText = emailData.TextBody || "";
+  const sender = emailData.From || "unknown@sender.com";
 
-  const originalText = emailData.TextBody || '';
-  const sender = emailData.From || 'unknown@example.com';
-
-  if (!originalText) {
-    console.warn('⚠️ No TextBody found in incoming email.');
-    return res.status(400).send('No content to translate');
-  }
+  console.log('📬 Email Received from:', sender);
+  console.log('📝 Original Message:', originalText);
 
   try {
-    // Step 1: Detect Language
-    const detectRes = await fetch('https://libretranslate.de/detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: originalText })
+    // Translate the message using OpenRouter (always attempt)
+    const translationRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://indox-translator.onrender.com",
+        "X-Title": "inbox-translator-app"
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are a translation assistant. Translate the user's message to English if it's not already in English. If it's already in English, return it as is."
+          },
+          {
+            role: "user",
+            content: originalText
+          }
+        ]
+      })
     });
 
-    const detection = await detectRes.json();
-    const language = detection?.[0]?.language || 'unknown';
-    console.log('🌍 Detected language:', language);
+    const result = await translationRes.json();
+    const translatedText = result.choices?.[0]?.message?.content || "Translation failed.";
 
-    let translatedText = originalText;
-
-    // Step 2: Only translate if not English
-    if (language !== 'en') {
-      const translationRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://indox-translator.onrender.com",
-          "X-Title": "inbox-translator-app"
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "You are a translation assistant. Translate the user's message to English."
-            },
-            {
-              role: "user",
-              content: originalText
-            }
-          ]
-        })
-      });
-
-      const result = await translationRes.json();
-      translatedText = result.choices?.[0]?.message?.content || "Translation failed.";
-      console.log('✅ Translated message:', translatedText);
-    } else {
-      console.log('⚡ Message already in English. Skipping translation.');
-    }
-
-    // Save to in-memory history
+    // Store in in-memory list
     receivedEmails.push({
       from: sender,
       original: originalText,
@@ -82,7 +59,7 @@ app.post('/inbound-email', async (req, res) => {
       time: new Date().toLocaleString()
     });
 
-    // Step 3: Send back translated email
+    // Send translated email back
     await postmarkClient.sendEmail({
       From: process.env.FROM_EMAIL,
       To: sender,
@@ -90,16 +67,15 @@ app.post('/inbound-email', async (req, res) => {
       TextBody: `Here is your translated message:\n\n${translatedText}`
     });
 
-    console.log('📤 Email sent back to:', sender);
-
+    console.log('✅ Translated message sent back to:', sender);
     res.status(200).send('Translation and email sent!');
   } catch (error) {
-    console.error('❌ Failed to process email:', error);
+    console.error('❌ Failed:', error);
     res.status(500).send('Translation or email send error');
   }
 });
 
-// GET: Home page showing translated emails
+// GET: Homepage with translated emails
 app.get('/', (req, res) => {
   res.render('index', { emails: receivedEmails });
 });
